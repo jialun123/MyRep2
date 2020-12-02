@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta http-equiv="X-UA-Compatible" content="ie=edge" />
+		<title>天天悦听player</title>
+		<!-- 样式 -->
+		<link rel="stylesheet" href="./css/index.css">
+	</head>
+	<body>
+		<div class="wrap">
+			<!-- 播放器主体区域 -->
+			<div class="play_wrap" id="player">
+				<div class="search_bar">
+					<img src="images/player_title.png" alt="" />
+					<!-- 搜索歌曲 -->
+					<input type="text" autocomplete="off" placeholder="请输入歌曲名或歌手名" @keypress.enter="searchMusic()" v-model="query" />
+				</div>
+				<div class="center_con">
+					<!-- 搜索歌曲列表 -->
+					<div class='song_wrapper'>
+						<ul class="song_list">
+							<li v-for="(item,index) in musicArr" :key>
+								<!-- 播放按钮 -->
+								<a href="javascript:;" @click="playMusic(item.id)"></a>
+								<!-- 歌曲名的显示 -->
+								<b>{{item.name}}</b>
+								<!-- mv的图标 -->
+								<span v-if="item.mvid!=0" @click="playMv(item.mvid)"><i></i></span>
+							</li>
+						</ul>
+						<img src="images/line.png" class="switch_btn" alt="">
+					</div>
+					<!-- 歌曲封面信息容器 -->
+					<div class="player_con" :class="{playing:isPlaying}">
+						<img src="images/player_bar.png" class="play_bar" />
+						<!-- 黑胶碟片 -->
+						<img src="images/disc.png" class="disc autoRotate" />
+						<!-- 歌曲封面图片 -->
+						<img :src="imgUrl" class="cover autoRotate" />
+					</div>
+					<!-- 歌曲评论容器 -->
+					<div class="comment_wrapper">
+						<h5 class='title'>热门留言</h5>
+						<div class='comment_list'>
+							<dl v-for="item in hotComments">
+								<!--评论人的图像 -->
+								<dt><img :src="item.user.avatarUrl" alt=""></dt>
+								<!-- 评论人的昵称 -->
+								<dd class="name">{{item.user.nickname}}</dd>
+								<!-- 评论人的评论内容 -->
+								<dd class="detail">
+									{{item.content}}
+								</dd>
+								<!-- 评论日期 -->
+								<dd>
+									<b>{{item.time | date('yyyy-MM-dd hh:mm:ss')}}</b>
+								</dd>
+							</dl>
+						</div>
+						<img src="images/line.png" class="right_line">
+					</div>
+				</div>
+
+				<div class="audio_con">
+					<audio ref='audio' @play="play()" @pause="pause()" :src="musicUrl" controls autoplay loop class="myaudio"></audio>
+				</div>
+				<!-- mv的播放的遮罩层 -->
+				<div class="video_con" style="display: none;" v-show="isShow">
+					<video :src="mvUrl" controls="controls"></video>
+					<!-- 遮罩层，给他绑定事件，取消遮罩 -->
+					<div class="mask" @click="hide()" ref="mv"></div>
+				</div>
+			</div>
+		</div>
+		<script src="js/vue.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/axios.min.js" type="text/javascript" charset="utf-8"></script>
+	</body>
+</html>
+<script type="text/javascript">
+	Vue.filter('date', function(dateTime, fmt) {
+		var dateTime = new Date(dateTime);
+		var o = {
+			"M+": dateTime.getMonth() + 1, //月份   
+			"d+": dateTime.getDate(), //日   
+			"h+": dateTime.getHours(), //小时   
+			"m+": dateTime.getMinutes(), //分   
+			"s+": dateTime.getSeconds(), //秒   
+			"q+": Math.floor((dateTime.getMonth() + 3) / 3), //季度   
+			"S": dateTime.getMilliseconds() //毫秒   
+		};
+
+		if (/(y+)/.test(fmt)) {
+			fmt = fmt.replace(RegExp.$1, (dateTime.getFullYear() + "").substr(4 - RegExp.$1.length));
+		}
+		for (var k in o) {
+			if (new RegExp(`(${k})`).test(fmt)) {
+				fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+			}
+		}
+		return fmt;
+	})
+
+	new Vue({
+		el: "#player",
+		data: {
+			query: '', //歌曲名
+			musicArr: [],
+			musicUrl: '',
+			imgUrl: '',
+			hotComments: '',
+			isPlaying: '',
+			mvUrl: '',
+			isShow: ''
+
+		},
+		methods: {
+			//音乐搜索
+			searchMusic() {
+				//alert(this.serchName)
+				var that = this;
+				//发送ajax请求
+				axios.get("https://autumnfish.cn/search?keywords=" + that.query).then(function(response) {
+					//console.log(response.data); //返回的数据
+					//console.log(response.data.result.songs)
+					that.musicArr = response.data.result.songs;
+					//alert(that.musicArr[0].name);
+				})
+			},
+
+			playMusic(id) {
+				var that = this;
+				//发送歌曲ajax请求
+				axios.get("https://autumnfish.cn/song/url?id=" + id).then(function(response) {
+					//console.log(response.data.data[0].url);
+					that.musicUrl = response.data.data[0].url;
+					//alert(musicUrl);
+				});
+				//发送歌曲封面的ajax请求
+				axios.get("https://autumnfish.cn/song/detail?ids=" + id).then(function(response) {
+					//console.log(response.data.songs[0].al.picUrl);
+					that.imgUrl = response.data.songs[0].al.picUrl;
+					//alert(imgUrl);
+				});
+				//发送歌曲评论的ajax请求
+				axios.get("https://autumnfish.cn/comment/hot?type=0&id=" + id).then(function(response) {
+					//console.log(response.data.hotComments);
+					that.hotComments = response.data.hotComments;
+				});
+
+			},
+
+			playMv(mvid) {
+				var that = this;
+				//发送播放MV的ajax请求
+				axios.get("https://autumnfish.cn/mv/url?id=" + mvid).then(function(response) {
+					//console.log(response.data.data.url);
+					that.mvUrl = response.data.data.url;
+					that.isShow = true;
+				});
+			},
+
+			play() {
+				this.isPlaying = true;
+			},
+
+			pause() {
+				this.isPlaying = false;
+			},
+			hide() {
+				//修改标记，取消遮罩
+				this.isShow = false;
+				//获取视频标签对象，调用暂停方法暂停mv
+				this.$refs.mv.pause();
+			}
+		}
+	})
+</script>
